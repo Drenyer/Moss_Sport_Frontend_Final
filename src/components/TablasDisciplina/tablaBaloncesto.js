@@ -67,6 +67,8 @@ const TablaBaloncesto = ({ categoria, disciplina, equipos }) => {
           )
         );
 
+        console.log(estadisticasEquipos);
+
         const partidosRelevantes = partidos.filter(partido => 
           partido.disciplina_id === disciplina.id &&
           partido.categoria_id === categoria.id &&

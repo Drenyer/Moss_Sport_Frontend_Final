@@ -5,6 +5,7 @@ import { obtenerDisciplinas } from '../../services/disciplinasServices';
 import { obtenerEquipos } from '../../services/equipoServices';
 import { obtenerCompetenciasIndividuales, obtenerResultadosEquipos } from '../../services/competicionServices';
 import { obtenerPuntuacion } from '../../services/estadisticaServices';
+import { obtenerPuntuacionesExtras } from '../../services/extrasServices';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Typography, Box, Button } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import puntajesService from '../../services/puntajeServices';
@@ -17,6 +18,7 @@ const TablaGeneral = () => {
   const [resultados, setResultados] = useState([]);
   const [competencias, setCompetencias] = useState([]);
   const [puntuaciones, setPuntuaciones] = useState([]);
+  const [puntuacionesExtras, setPuntuacionesExtras] = useState([]);
   const [decrementosPorPosicion, setDecrementosPorPosicion] = useState({});
 
   useEffect(() => {
@@ -30,7 +32,8 @@ const TablaGeneral = () => {
           resultadosData,
           competenciasData,
           puntuacionesData,
-          puntajesConfigData
+          puntajesConfigData,
+          puntuacionesExtrasData
         ] = await Promise.all([
           obtenerTorneos(),
           obtenerCategorias(),
@@ -39,7 +42,8 @@ const TablaGeneral = () => {
           obtenerResultadosEquipos(),
           obtenerCompetenciasIndividuales(),
           obtenerPuntuacion(),
-          puntajesService.obtenerPuntajes()
+          puntajesService.obtenerPuntajes(),
+          obtenerPuntuacionesExtras()
         ]);
 
         setTorneos(torneosData || []);
@@ -49,6 +53,7 @@ const TablaGeneral = () => {
         setResultados(resultadosData.data[0] || []);
         setCompetencias(competenciasData.data || []);
         setPuntuaciones(puntuacionesData || []);
+        setPuntuacionesExtras(puntuacionesExtrasData || []);
 
         const decrementos = {
           [puntajesConfigData[0].puntaje_primer_puesto]: [0, 2, 4, 5, 6, 7, 8, 9],
@@ -58,7 +63,6 @@ const TablaGeneral = () => {
         };
 
         setDecrementosPorPosicion(decrementos);
-
       } catch (error) {
         console.error('Error al obtener datos:', error);
       }
@@ -67,142 +71,145 @@ const TablaGeneral = () => {
     fetchData();
   }, []);
 
+  const getPuntosExtras = (equipoId, tipo) => {
+    const puntuacion = puntuacionesExtras.find(p => p.equipo_id === equipoId);
+    if (!puntuacion) return 'F';
+    const valor = puntuacion[tipo];
+    return valor === 0 ? 'F' : valor;
+  };
+
   const esFutbolOBasquet = (disciplinaId) => {
     const disciplina = disciplinas.find(d => d.id === disciplinaId);
     return disciplina?.tipo === 'colectiva';
   };
 
-  const getPuntajePorDisciplina = (equipoId, disciplinaId) => {
+  const ESTADOS_PUNTAJE = {
+    FALTA: 'F',
+    NO_PRESENTADO: 'NP',
+    NO_PRESENTADO_VALOR: 9999
+  };
 
-    // Verifica si es fútbol o básquet
+  const getPuntajePorDisciplina = (equipoId, disciplinaId) => {
     if (esFutbolOBasquet(disciplinaId)) {
-      // Busca en la tabla de puntuacion
       const puntajesEquipo = puntuaciones.filter(p => 
         p.equipo_id === equipoId && 
         p.disciplina_id === disciplinaId
       );
       
-      if (puntajesEquipo.length === 0) {
-        return 'NP';
-      }
-  
+      if (puntajesEquipo.length === 0) return null;
+      
       const sumaPuntajes = puntajesEquipo.reduce((sum, p) => sum + (p.puntaje_por_equipo || 0), 0);
-      return sumaPuntajes === 9999 ? 'NP' : sumaPuntajes;
+      return sumaPuntajes === ESTADOS_PUNTAJE.NO_PRESENTADO_VALOR ? ESTADOS_PUNTAJE.NO_PRESENTADO : sumaPuntajes;
     } else {
-      // Para otras disciplinas, busca en competencia_equipos
       const competencia = competencias.find(c => c.disciplina_id === disciplinaId);
-  
-      if (!competencia) {
-        return 'NP';
-      }
-  
+      if (!competencia) return null;
+
       const resultado = resultados.find(res => 
         res.equipo_id === equipoId && 
         res.competencia_id === competencia.id
       );
       
-      if (!resultado) {
-        return 'NP';
-      }
-
-      return resultado.resultado_equipo === 9999 ? 'NP' : (resultado.resultado_equipo || 0);
+      if (!resultado) return null;
+      if (resultado.resultado_equipo === null) return null;
+      return resultado.resultado_equipo === ESTADOS_PUNTAJE.NO_PRESENTADO_VALOR ? 
+        ESTADOS_PUNTAJE.NO_PRESENTADO : 
+        resultado.resultado_equipo;
     }
+  };
+
+  const formatearPuntaje = (puntaje) => {
+    if (puntaje === null) return ESTADOS_PUNTAJE.FALTA;
+    if (puntaje === ESTADOS_PUNTAJE.NO_PRESENTADO) return ESTADOS_PUNTAJE.NO_PRESENTADO;
+    return puntaje;
+  };
+
+  const compararPuntajes = (puntajeA, puntajeB) => {
+    if (typeof puntajeA === 'number' && typeof puntajeB === 'number') {
+      return puntajeB - puntajeA;
+    }
+
+    if (typeof puntajeA === 'number') return -1;
+    if (typeof puntajeB === 'number') return 1;
+    if (puntajeA === ESTADOS_PUNTAJE.NO_PRESENTADO && puntajeB === null) return -1;
+    if (puntajeB === ESTADOS_PUNTAJE.NO_PRESENTADO && puntajeA === null) return 1;
+    return 0;
   };
 
   const getPuntajeAdicionalPorPosicion = (valorPuntos, posicion) => {
     const decrementos = decrementosPorPosicion[valorPuntos];
-    
     if (!decrementos || posicion < 1 || posicion > decrementos.length) {
       return 0;
     }
-    
-    const puntajeAdicional = valorPuntos - decrementos[posicion - 1];
-    return puntajeAdicional;
+    return valorPuntos - decrementos[posicion - 1];
   };
 
-  const getPuntajeTotalConAdicional = (equipo, categoriaId) => {
-    let puntajeBase = 0;
-    let puntajeAdicionalTotal = 0;
-  
-    // Obtener equipos de la misma categoría
+  const getPuntajePorPosicionEnDisciplina = (equipoId, disciplinaId, categoriaId) => {
     const equiposCategoria = equipos.filter(e => e.categoria_id === categoriaId);
-  
-    disciplinas.forEach(disciplina => {
-      
-      // Calcula el puntaje base para esta disciplina
-      const puntajeDisciplina = getPuntajePorDisciplina(equipo.id, disciplina.id);
-      if (puntajeDisciplina !== 'NP') {
-        puntajeBase += Number(puntajeDisciplina);
-      }
-  
-      // Obtiene solo los equipos de la misma categoría que participaron en esta disciplina
-      const equiposParticipantes = equiposCategoria.filter(e => {
-        const puntaje = getPuntajePorDisciplina(e.id, disciplina.id);
-        const participa = puntaje !== 'NP';
-        return participa;
-      });
+    const disciplina = disciplinas.find(d => d.id === disciplinaId);
     
-      // Ordena los equipos por puntaje en esta disciplina (solo de la categoría)
-      const equiposOrdenados = equiposParticipantes.sort((a, b) => {
-        const puntajeA = Number(getPuntajePorDisciplina(a.id, disciplina.id));
-        const puntajeB = Number(getPuntajePorDisciplina(b.id, disciplina.id));
-        return puntajeB - puntajeA;
-      });
-  
-      equiposOrdenados.forEach((e, idx) => {
-        const puntaje = getPuntajePorDisciplina(e.id, disciplina.id);
-      });
-  
-      // Encuentra la posición del equipo actual dentro de su categoría
-      const posicion = equiposOrdenados.findIndex(e => e.id === equipo.id) + 1;
-      
-      // Solo calcula puntaje adicional si el equipo participó
-      if (posicion > 0) {
-        const puntajeAdicional = getPuntajeAdicionalPorPosicion(
-          disciplina.valor_puntos,
-          posicion
-        );
-        puntajeAdicionalTotal += puntajeAdicional;
-        console.log(`Puntaje adicional en esta disciplina: ${puntajeAdicional}`);
-      } else {
-        console.log('El equipo no participó - sin puntaje adicional');
+    if (!disciplina) return ESTADOS_PUNTAJE.FALTA;
+
+    const puntajesEquipos = equiposCategoria
+      .map(equipo => ({
+        equipoId: equipo.id,
+        puntaje: getPuntajePorDisciplina(equipo.id, disciplinaId)
+      }))
+      .sort((a, b) => compararPuntajes(a.puntaje, b.puntaje));
+
+    const equiposConPuntaje = puntajesEquipos.filter(p => typeof p.puntaje === 'number');
+    const posicion = equiposConPuntaje.findIndex(p => p.equipoId === equipoId) + 1;
+
+    const puntajeEquipo = puntajesEquipos.find(p => p.equipoId === equipoId)?.puntaje;
+
+    if (puntajeEquipo === null) return ESTADOS_PUNTAJE.FALTA;
+    if (puntajeEquipo === ESTADOS_PUNTAJE.NO_PRESENTADO) return ESTADOS_PUNTAJE.NO_PRESENTADO;
+    if (posicion === 0) return ESTADOS_PUNTAJE.FALTA;
+
+    return getPuntajeAdicionalPorPosicion(disciplina.valor_puntos, posicion);
+  };
+
+  const getPuntajeTotal = (equipo, categoriaId) => {
+    const puntajeBase = disciplinas.reduce((total, disciplina) => {
+      const puntaje = getPuntajePorPosicionEnDisciplina(equipo.id, disciplina.id, categoriaId);
+      if (typeof puntaje === 'number') {
+        return total + puntaje;
       }
-    });
+      return total;
+    }, 0);
 
-    const puntajeTotal = puntajeBase + puntajeAdicionalTotal;
+    const inauguracion = getPuntosExtras(equipo.id, 'inauguracion');
+    const adicional = getPuntosExtras(equipo.id, 'adicional');
 
-    return {
-      puntajeBase,
-      puntajeAdicionalTotal,
-      puntajeTotal
-    };
+    return puntajeBase + 
+           (inauguracion === 'F' ? 0 : inauguracion) + 
+           (adicional === 'F' ? 0 : adicional);
   };
 
   const getEquiposOrdenados = (categoriaId) => {
+    const equiposCategoria = equipos.filter(equipo => equipo.categoria_id === categoriaId);
     
-    // Filtrar solo equipos de esta categoría
-    const equiposCategoria = equipos.filter(equipo => 
-      equipo.categoria_id === categoriaId
-    );
-    
-    const equiposOrdenados = equiposCategoria.sort((a, b) => {
-      const { puntajeTotal: puntajeA } = getPuntajeTotalConAdicional(a, categoriaId);
-      const { puntajeTotal: puntajeB } = getPuntajeTotalConAdicional(b, categoriaId);
+    return equiposCategoria.sort((a, b) => {
+      const puntajeA = getPuntajeTotal(a, categoriaId);
+      const puntajeB = getPuntajeTotal(b, categoriaId);
       return puntajeB - puntajeA;
     });
-  
-    equiposOrdenados.forEach((equipo, idx) => {
-      const { puntajeTotal } = getPuntajeTotalConAdicional(equipo, categoriaId);
-    });
-  
-    return equiposOrdenados;
   };
-  
+
+  const getEstiloPuntaje = (puntaje) => {
+    if (puntaje === ESTADOS_PUNTAJE.FALTA) {
+      return { color: 'gray', fontStyle: 'italic' };
+    }
+    if (puntaje === ESTADOS_PUNTAJE.NO_PRESENTADO) {
+      return { color: 'red' };
+    }
+    return {};
+  };
+
   const renderTableData = () => {
     if (!categorias.length || !equipos.length || !disciplinas.length) {
       return (
         <TableRow>
-          <TableCell colSpan={disciplinas.length + 3}>
+          <TableCell colSpan={disciplinas.length + 5}>
             No hay datos disponibles
           </TableCell>
         </TableRow>
@@ -226,35 +233,39 @@ const TablaGeneral = () => {
               {categoria.nombre}
             </TableCell>
           </TableRow>
-          {equiposOrdenados.map((equipo, idx) => {
-            const { puntajeBase, puntajeAdicionalTotal, puntajeTotal } = 
-              getPuntajeTotalConAdicional(equipo, categoria.id);
-  
-            return (
-              <TableRow key={equipo.id}>
-                <TableCell>{equipo.nombre}</TableCell>
-                {disciplinas.map(disciplina => (
-                  <TableCell key={disciplina.id} align="center">
-                    {getPuntajePorDisciplina(equipo.id, disciplina.id)}
+          {equiposOrdenados.map((equipo) => (
+            <TableRow key={equipo.id}>
+              <TableCell>{equipo.nombre}</TableCell>
+              <TableCell align="center" style={getEstiloPuntaje(getPuntosExtras(equipo.id, 'inauguracion'))}>
+                {getPuntosExtras(equipo.id, 'inauguracion')}
+              </TableCell>
+              <TableCell align="center" style={getEstiloPuntaje(getPuntosExtras(equipo.id, 'adicional'))}>
+                {getPuntosExtras(equipo.id, 'adicional')}
+              </TableCell>
+              {disciplinas.map(disciplina => {
+                const puntaje = getPuntajePorPosicionEnDisciplina(
+                  equipo.id, 
+                  disciplina.id, 
+                  categoria.id
+                );
+                return (
+                  <TableCell 
+                    key={disciplina.id} 
+                    align="center"
+                    style={getEstiloPuntaje(puntaje)}
+                  >
+                    {formatearPuntaje(puntaje)}
                   </TableCell>
-                ))}
-                <TableCell style={{ fontWeight: 'bold' }}>
-                  {puntajeTotal.toFixed()} 
-                  {puntajeAdicionalTotal > 0 && (
-                    <span style={{ color: 'green' }}>
-                      {` (+${puntajeAdicionalTotal.toFixed()})`}
-                    </span>
-                  )}
-                </TableCell>
-              </TableRow>
-            );
-          })}
+                );
+              })}
+              <TableCell style={{ fontWeight: 'bold' }}>
+                {getPuntajeTotal(equipo, categoria.id)}
+              </TableCell>
+            </TableRow>
+          ))}
         </React.Fragment>
       );
     });
-
-
-
   };
 
   return (
@@ -280,6 +291,8 @@ const TablaGeneral = () => {
             <TableRow>
               <TableCell>Categoría</TableCell>
               <TableCell>Equipo</TableCell>
+              <TableCell align="center">Inauguración</TableCell>
+              <TableCell align="center">Adicional</TableCell>
               {disciplinas.map(disciplina => (
                 <TableCell key={disciplina.id} align="center">
                   {disciplina.nombre}

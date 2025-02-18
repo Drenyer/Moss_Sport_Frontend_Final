@@ -64,6 +64,7 @@ const TablaFutbol = ({ categoria, disciplina, equipos }) => {
             )
           )
         );
+        console.log(estadisticasEquipos);
       
         const partidosRelevantes = partidos.filter(partido =>
           partido.disciplina_id === disciplina.id &&
@@ -76,11 +77,15 @@ const TablaFutbol = ({ categoria, disciplina, equipos }) => {
 
           const golesData = partidosRelevantes.reduce((acc, partido) => {
             if (partido.equipo1_id === equipo.id) {
-              acc.golesFavor += partido.goles_1 || 0;
-              acc.golesContra += partido.goles_2 || 0;
+              if (partido.goles_1 !== 9999 && partido.goles_2 !== 9999) { 
+                acc.golesFavor += partido.goles_1 || 0;
+                acc.golesContra += partido.goles_2 || 0;
+              }
             } else if (partido.equipo2_id === equipo.id) {
-              acc.golesFavor += partido.goles_2 || 0;
-              acc.golesContra += partido.goles_1 || 0;
+              if (partido.goles_1 !== 9999 && partido.goles_2 !== 9999) {  
+                acc.golesFavor += partido.goles_2 || 0;
+                acc.golesContra += partido.goles_1 || 0;
+              }
             }
             return acc;
           }, { golesFavor: 0, golesContra: 0 });

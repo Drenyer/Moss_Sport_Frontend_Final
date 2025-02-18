@@ -36,6 +36,7 @@ import LogoAuth from "../components/logoAuth";
 import Partidos from "../components/Partidos";
 import PartidoIndividual from "../components/AdminDashboard/PartidosIndividuales";
 import PuntajeDisciplinas from "../components/TablasDisciplina/PuntajeDisciplinas";
+import PartidosExtras from "../components/AdminDashboard/PuntuacionesExtras";
 
 const AdminDashboard = () => {
   const [activeSection, setActiveSection] = useState("Estadísticas");
@@ -330,6 +331,10 @@ const AdminDashboard = () => {
             <ListItemText primary="Partidos Individuales" />
           </ListItem>
           <Divider />
+          <ListItem button onClick={() => handleSectionChange("Partidos-extras")}>
+            <ListItemText primary="Inaguración" />
+          </ListItem>
+          <Divider />
           <ListItem button onClick={() => handleSectionChange("Puntaje-Disciplina")}>
             <ListItemText primary="Puntaje Disciplina" />
           </ListItem>
@@ -376,6 +381,12 @@ const AdminDashboard = () => {
         {activeSection === "Partidos-individuales" && (
           <Box>
             <PartidoIndividual />
+          </Box>  
+        )}
+
+        {activeSection === "Partidos-extras" && (
+          <Box>
+            <PartidosExtras />
           </Box>  
         )}
 

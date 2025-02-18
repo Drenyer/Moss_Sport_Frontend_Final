@@ -117,7 +117,7 @@ const PartidosTable = () => {
     let newValue = value.trim().toUpperCase(); // Convertimos a mayúsculas y limpiamos espacios
 
     if (newValue === NO_PRESENTADO) {
-      newValue = NO_PRESENTADO_VALUE; // NP se convierte a 555
+      newValue = NO_PRESENTADO_VALUE; // NP se convierte a 9999
     } else if (!isNaN(newValue) && newValue !== "") {
       newValue = Math.max(0, Number(newValue)); // Convertir a número y evitar negativos
     } else {
@@ -160,7 +160,7 @@ const PartidosTable = () => {
         setPartidosActualizados((prev) => new Set([...prev, partido.id]));
         mostrarNotificacion("Partido actualizado exitosamente", "success");
 
-        // **Nueva lógica de puntuación**
+        // **Lógica de puntuación**
         let puntosEquipo1 = 0;
         let puntosEquipo2 = 0;
 
@@ -169,25 +169,25 @@ const PartidosTable = () => {
           puntosEquipo1 = 0;
           puntosEquipo2 = 0;
         } else if (goles1 === NO_PRESENTADO_VALUE) {
-          // Equipo 1 no se presenta → Equipo 2 gana con 2 puntos, equipo 1 0 puntos
-          puntosEquipo2 = 2;
+          // Equipo 1 no se presenta → Equipo 2 gana con 3 puntos, equipo 1 0 puntos
+          puntosEquipo2 = 3;
           puntosEquipo1 = 0;
         } else if (goles2 === NO_PRESENTADO_VALUE) {
-          // Equipo 2 no se presenta → Equipo 1 gana con 2 puntos, equipo 2 0 puntos
-          puntosEquipo1 = 2;
+          // Equipo 2 no se presenta → Equipo 1 gana con 3 puntos, equipo 2 0 puntos
+          puntosEquipo1 = 3;
           puntosEquipo2 = 0;
         } else {
           // Lógica normal de puntuación
           if (goles1 > goles2) {
-            puntosEquipo1 = 2; // Ganador
+            puntosEquipo1 = 3; // Ganador
             puntosEquipo2 = 1; // Perdedor
           } else if (goles2 > goles1) {
-            puntosEquipo2 = 2; // Ganador
+            puntosEquipo2 = 3; // Ganador
             puntosEquipo1 = 1; // Perdedor
           } else {
             // Empate → Ambos equipos obtienen 1 punto
-            puntosEquipo1 = 1;
-            puntosEquipo2 = 1;
+            puntosEquipo1 = 2;
+            puntosEquipo2 = 2;
           }
         }
 

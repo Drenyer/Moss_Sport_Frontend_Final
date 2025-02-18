@@ -257,6 +257,7 @@ const TablaCompeticiones = ({ competencias, onActualizarResultado }) => {
             <TableRow>
               <TableCell>Equipo</TableCell>
               <TableCell>Capitán</TableCell>
+              <TableCell>Disciplina</TableCell>
               <TableCell>Categoría</TableCell>
               <TableCell>Puntaje Individual</TableCell>
               <TableCell>Estado</TableCell>
@@ -268,6 +269,9 @@ const TablaCompeticiones = ({ competencias, onActualizarResultado }) => {
               <TableRow key={equipo.uniqueKey}>
                 <TableCell>{equipo.nombre}</TableCell>
                 <TableCell>{equipo.capitan}</TableCell>
+                <TableCell>
+                  {disciplinasUnicas.find(d => d.id === equipo.disciplina_id)?.nombre || 'Sin disciplina'}
+                </TableCell>
                 <TableCell>
                   {categoriasPorDisciplina.length > 0 
                     ? (categoriasPorDisciplina.find(cat => cat.id === equipo.categoria_id)?.nombre 
@@ -282,7 +286,6 @@ const TablaCompeticiones = ({ competencias, onActualizarResultado }) => {
                     onChange={(e) =>
                       handleResultadoChange(equipo.uniqueKey, e.target.value)
                     }
-                    disabled={resultadosActualizados.has(equipo.uniqueKey) || equipo.tieneResultado}
                     placeholder="Puntaje o NP"
                     helperText="Ingrese 9999 para No Presentado"
                     inputProps={{
@@ -301,7 +304,6 @@ const TablaCompeticiones = ({ competencias, onActualizarResultado }) => {
                   <Button
                     variant="contained"
                     onClick={() => handleActualizarResultado(equipo.uniqueKey)}
-                    disabled={resultadosActualizados.has(equipo.uniqueKey) || equipo.tieneResultado}
                   >
                     Actualizar
                   </Button>
